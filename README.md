@@ -25,7 +25,12 @@ cd franken-claude
 # Copy and configure MCP settings (optional, for local development)
 cp .claude/settings.local.json.example .claude/settings.local.json
 # Edit .claude/settings.local.json to add your context7 API key
+
+# Install fc CLI globally (optional, but recommended)
+sudo cp fc /usr/local/bin/fc
 ```
+
+**Note:** If you don't install globally, use `./fc` instead of `fc` for all commands below.
 
 ## Usage
 
