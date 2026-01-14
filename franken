@@ -2,7 +2,7 @@
 set -e
 
 # fc: Franken-Claude CLI - Manage Claude Code containers with AWS SSO
-# Usage: fc <command> [options]
+# Usage: franken <command> [options]
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -36,9 +36,9 @@ blue() {
 
 usage() {
     cat << EOF
-fc v${VERSION} - Franken-Claude CLI
+franken v${VERSION} - Franken-Claude CLI
 
-Usage: fc <command> [options]
+Usage: franken <command> [options]
 
 Commands:
   start     Start a new container
@@ -50,7 +50,7 @@ Commands:
   version   Show version information
   help      Show this help message
 
-Run 'fc <command> --help' for more information on a command.
+Run 'franken <command> --help' for more information on a command.
 
 Examples:
   fc start --profile dev --repo ~/projects/my-app

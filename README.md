@@ -26,20 +26,20 @@ cd franken-claude
 cp .claude/settings.local.json.example .claude/settings.local.json
 # Edit .claude/settings.local.json to add your context7 API key
 
-# Install fc CLI globally (optional, but recommended)
-sudo cp fc /usr/local/bin/fc
+# Install franken CLI globally (optional, but recommended)
+sudo cp franken /usr/local/bin/franken
 ```
 
-**Note:** If you don't install globally, use `./fc` instead of `fc` for all commands below.
+**Note:** If you don't install globally, use `./franken` instead of `franken` for all commands below.
 
 ## Usage
 
-The `fc` CLI provides commands to manage franken-claude containers:
+The `franken` CLI provides commands to manage franken-claude containers:
 
 ### Start a container
 
 ```bash
-fc start --profile <aws-profile> --repo <path-to-git-repo> [--read-only]
+franken start --profile <aws-profile> --repo <path-to-git-repo> [--read-only]
 ```
 
 **Options:**
@@ -50,13 +50,13 @@ fc start --profile <aws-profile> --repo <path-to-git-repo> [--read-only]
 **Examples:**
 ```bash
 # Start with specific profile
-fc start --profile dev --repo ~/projects/my-app
+franken start --profile dev --repo ~/projects/my-app
 
 # Start with all AWS profiles available (mounts ~/.aws)
-fc start --profile all --repo ~/projects/my-app
+franken start --profile all --repo ~/projects/my-app
 
 # Start in read-only mode
-fc start --profile dev --repo ~/projects/my-app --read-only
+franken start --profile dev --repo ~/projects/my-app --read-only
 ```
 
 This will:
@@ -70,7 +70,7 @@ Each new browser tab to the same URL creates a new git worktree (`franken-1`, `f
 ### List containers
 
 ```bash
-fc list
+franken list
 ```
 
 Shows all franken-claude containers with their status, port, and uptime.
@@ -78,24 +78,24 @@ Shows all franken-claude containers with their status, port, and uptime.
 ### View logs
 
 ```bash
-fc logs <container-name>           # View logs
-fc logs <container-name> -f        # Follow logs
-fc logs <container-name> --tail 50 # Last 50 lines
+franken logs <container-name>           # View logs
+franken logs <container-name> -f        # Follow logs
+franken logs <container-name> --tail 50 # Last 50 lines
 ```
 
 ### Execute commands
 
 ```bash
-fc exec <container-name> "command"  # Run a command
-fc exec <container-name>            # Interactive bash shell
+franken exec <container-name> "command"  # Run a command
+franken exec <container-name>            # Interactive bash shell
 ```
 
 ### Stop containers
 
 ```bash
-fc stop <container-name>        # Stop specific container
-fc stop <profile>               # Stop all containers for profile
-fc stop --all                   # Stop all franken-claude containers
+franken stop <container-name>        # Stop specific container
+franken stop <profile>               # Stop all containers for profile
+franken stop --all                   # Stop all franken-claude containers
 ```
 
 Stopping automatically cleans up git worktrees and saves the container state to a timestamped image.
@@ -103,7 +103,7 @@ Stopping automatically cleans up git worktrees and saves the container state to 
 ### Rebuild image
 
 ```bash
-fc rebuild
+franken rebuild
 ```
 
 Rebuilds the Docker image from scratch (useful after updating Dockerfile or scripts).
@@ -111,13 +111,13 @@ Rebuilds the Docker image from scratch (useful after updating Dockerfile or scri
 ### Get help
 
 ```bash
-fc help                    # Show all commands
+franken help                    # Show all commands
 fc <command> --help        # Show help for specific command
 ```
 
 ## Environment Variables
 
-Set these on your host machine before running `fc start`:
+Set these on your host machine before running `franken start`:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
