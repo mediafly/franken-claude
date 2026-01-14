@@ -6,9 +6,10 @@ A wrapper to launch sandboxed Claude Code containers in OrbStack/Docker with AWS
 
 - Runs Claude Code CLI in isolated Docker containers
 - Automatic AWS SSO credential injection (temporary credentials only)
-- Web-based terminal via ttyd
+- Web-based terminal via ttyd with browser notifications
 - Each terminal tab gets its own git worktree for parallel work
 - Pre-configured MCP servers (context7, sequential-thinking, aws-documentation, aws-knowledge, aws-core)
+- Desktop notifications when Claude is waiting for user input
 
 ## Prerequisites
 
@@ -136,6 +137,28 @@ To avoid having to authenticate in the browser every time you launch a container
    export CLAUDE_OAUTH_TOKEN="your-token-here"
    ```
 4. The token will be automatically injected into containers at launch
+
+## Browser Notifications
+
+The web terminal includes desktop notification support to alert you when Claude is waiting for input. This is especially useful when working in other windows or tabs.
+
+### How it works
+
+- When you first access the terminal, your browser will request permission to show notifications
+- Notifications are triggered when Claude displays prompts like "continue", "approve", "proceed", or questions
+- A 5-second cooldown prevents notification spam
+- Clicking a notification brings the terminal window into focus
+
+### Toggle notifications
+
+Press `Ctrl+Shift+N` to enable/disable notifications. The notification status will briefly appear in the top-right corner.
+
+### Notification patterns
+
+The system detects these common Claude prompt patterns:
+- Questions ending with `?`
+- Keywords: "continue", "approve", "proceed", "waiting", "input", "response"
+- Extended inactivity when the window is unfocused (30+ seconds)
 
 ## What's in the container
 
