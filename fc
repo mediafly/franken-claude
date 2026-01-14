@@ -1,0 +1,503 @@
+#!/bin/bash
+set -e
+
+# fc: Franken-Claude CLI - Manage Claude Code containers with AWS SSO
+# Usage: fc <command> [options]
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IMAGE_NAME="franken-claude"
+BASE_PORT=7681
+
+VERSION="0.2.0"
+
+# Helper functions
+error() {
+    echo -e "${RED}Error: $1${NC}" >&2
+    exit 1
+}
+
+warn() {
+    echo -e "${YELLOW}$1${NC}" >&2
+}
+
+info() {
+    echo -e "${GREEN}$1${NC}"
+}
+
+blue() {
+    echo -e "${BLUE}$1${NC}"
+}
+
+usage() {
+    cat << EOF
+fc v${VERSION} - Franken-Claude CLI
+
+Usage: fc <command> [options]
+
+Commands:
+  start     Start a new container
+  stop      Stop and save container(s)
+  list      List running containers
+  logs      View container logs
+  exec      Execute command in container
+  rebuild   Rebuild the Docker image
+  version   Show version information
+  help      Show this help message
+
+Run 'fc <command> --help' for more information on a command.
+
+Examples:
+  fc start --profile dev --repo ~/projects/my-app
+  fc list
+  fc logs franken-dev-1
+  fc stop dev
+  fc exec franken-dev-1 "aws sts get-caller-identity"
+EOF
+    exit 0
+}
+
+# Command: start
+cmd_start() {
+    local AWS_PROFILE=""
+    local REPO_PATH=""
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --profile|-p)
+                AWS_PROFILE="$2"
+                shift 2
+                ;;
+            --repo|-r)
+                REPO_PATH="$2"
+                shift 2
+                ;;
+            --help|-h)
+                cat << EOF
+Usage: fc start --profile <aws-profile> --repo <path-to-git-repo>
+
+Start a new franken-claude container with AWS SSO credentials.
+
+Options:
+  --profile, -p    AWS SSO profile name (required)
+  --repo, -r       Path to git repository to mount (required)
+  --help, -h       Show this help message
+
+Example:
+  fc start --profile my-dev-account --repo ~/projects/my-app
+EOF
+                exit 0
+                ;;
+            *)
+                error "Unknown option: $1"
+                ;;
+        esac
+    done
+
+    # Validate required arguments
+    if [ -z "$AWS_PROFILE" ]; then
+        error "Missing required argument: --profile"
+    fi
+
+    if [ -z "$REPO_PATH" ]; then
+        error "Missing required argument: --repo"
+    fi
+
+    # Resolve repo path to absolute path
+    REPO_PATH=$(cd "$REPO_PATH" 2>/dev/null && pwd) || error "Repository path does not exist: $REPO_PATH"
+
+    # Check if Docker is available
+    if ! command -v docker &> /dev/null; then
+        error "Docker is not installed or not in PATH"
+    fi
+
+    # Build image if it doesn't exist
+    if ! docker image inspect "$IMAGE_NAME" &> /dev/null; then
+        info "Building franken-claude image (this may take a few minutes)..."
+        docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" || error "Failed to build Docker image"
+    fi
+
+    # Extract AWS credentials
+    info "Checking AWS credentials for profile: $AWS_PROFILE"
+
+    # Try to get credentials, if it fails, run SSO login
+    if ! CREDS_JSON=$(aws configure export-credentials --profile "$AWS_PROFILE" --format env-no-export 2>&1); then
+        echo ""
+        warn "AWS SSO credentials expired or not found"
+        info "Launching SSO login for profile: $AWS_PROFILE"
+        echo ""
+
+        if ! aws sso login --profile "$AWS_PROFILE"; then
+            error "SSO login failed"
+        fi
+
+        echo ""
+        info "SSO login successful, extracting credentials..."
+
+        CREDS_JSON=$(aws configure export-credentials --profile "$AWS_PROFILE" --format env-no-export 2>&1) || {
+            error "Failed to extract credentials after SSO login"
+        }
+    fi
+
+    # Parse credentials from env-no-export format
+    AWS_ACCESS_KEY_ID=$(echo "$CREDS_JSON" | grep "AWS_ACCESS_KEY_ID=" | cut -d'=' -f2)
+    AWS_SECRET_ACCESS_KEY=$(echo "$CREDS_JSON" | grep "AWS_SECRET_ACCESS_KEY=" | cut -d'=' -f2)
+    AWS_SESSION_TOKEN=$(echo "$CREDS_JSON" | grep "AWS_SESSION_TOKEN=" | cut -d'=' -f2)
+
+    if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+        error "Failed to extract AWS credentials"
+    fi
+
+    # Get region from profile
+    AWS_REGION=$(aws configure get region --profile "$AWS_PROFILE" 2>/dev/null || echo "us-east-1")
+
+    info "AWS credentials extracted successfully"
+    info "Region: $AWS_REGION"
+
+    # Find next available container number for this profile
+    CONTAINER_BASE="franken-${AWS_PROFILE}"
+    CONTAINER_NUM=1
+
+    while docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_BASE}-${CONTAINER_NUM}$"; do
+        CONTAINER_NUM=$((CONTAINER_NUM + 1))
+    done
+
+    CONTAINER_NAME="${CONTAINER_BASE}-${CONTAINER_NUM}"
+
+    # Find next available port
+    PORT=$BASE_PORT
+    while lsof -i :$PORT &> /dev/null || docker ps --format '{{.Ports}}' | grep -q ":${PORT}->"; do
+        PORT=$((PORT + 1))
+    done
+
+    info "Starting container: $CONTAINER_NAME"
+    info "Mounting repository: $REPO_PATH"
+    info "Web terminal will be available at: http://localhost:$PORT"
+
+    # Run the container
+    docker run -d \
+        --name "$CONTAINER_NAME" \
+        -p "${PORT}:7681" \
+        -v "${REPO_PATH}:/workspace" \
+        -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
+        -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+        -e "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}" \
+        -e "AWS_REGION=${AWS_REGION}" \
+        -e "AWS_DEFAULT_REGION=${AWS_REGION}" \
+        -e "CONTEXT7_API_KEY=${CONTEXT7_API_KEY:-}" \
+        -e "ANTHROPIC_AUTH_TOKEN=${CLAUDE_OAUTH_TOKEN:-}" \
+        "$IMAGE_NAME" || error "Failed to start container"
+
+    # Wait a moment for ttyd to start
+    sleep 2
+
+    # Check if container is still running
+    if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        echo ""
+        echo -e "${RED}Container failed to start. Logs:${NC}"
+        docker logs "$CONTAINER_NAME"
+        docker rm "$CONTAINER_NAME" &> /dev/null
+        exit 1
+    fi
+
+    info ""
+    info "=========================================="
+    info "  franken-claude is ready!"
+    info "=========================================="
+    info ""
+    info "Container: $CONTAINER_NAME"
+    info "Web terminal: http://localhost:$PORT"
+    info ""
+    info "Open additional terminal tabs at the same URL."
+    info "Each tab gets its own git worktree."
+    info ""
+    info "To stop: fc stop $CONTAINER_NAME"
+    info "         fc stop $AWS_PROFILE  (stops all)"
+    info ""
+
+    # Open browser
+    if command -v open &> /dev/null; then
+        open "http://localhost:$PORT"
+    elif command -v xdg-open &> /dev/null; then
+        xdg-open "http://localhost:$PORT"
+    fi
+}
+
+# Command: stop
+cmd_stop() {
+    if [ $# -eq 0 ]; then
+        cat << EOF
+Usage: fc stop <profile-or-container-name>
+
+Stop and save franken-claude container(s).
+
+Examples:
+  fc stop myprofile           # Stop all containers for 'myprofile'
+  fc stop franken-myprofile-2 # Stop specific container
+
+Options:
+  --all, -a    Stop all franken-claude containers
+  --help, -h   Show this help message
+EOF
+        exit 1
+    fi
+
+    cleanup_container() {
+        local container_name="$1"
+
+        echo "Stopping: $container_name"
+
+        # Cleanup git worktrees inside the container before stopping
+        echo "  Cleaning up git worktrees..."
+        docker exec "$container_name" bash -c '
+            cd /workspace 2>/dev/null || exit 0
+            if [ -d .git ]; then
+                git worktree list --porcelain 2>/dev/null | grep "^worktree /worktrees" | cut -d" " -f2 | while read wt; do
+                    git worktree remove --force "$wt" 2>/dev/null || true
+                done
+            fi
+            rm -rf /worktrees/* 2>/dev/null || true
+        ' 2>/dev/null || true
+
+        # Commit container state to a new image before stopping
+        local timestamp=$(date +%Y%m%d-%H%M%S)
+        local saved_image="${container_name}:${timestamp}"
+        echo "  Saving container state to image: $saved_image"
+        docker commit "$container_name" "$saved_image" > /dev/null 2>&1 || warn "  Warning: Failed to save container state"
+
+        # Stop and remove the container
+        echo "  Stopping container..."
+        docker stop "$container_name" > /dev/null 2>&1 || true
+
+        echo "  Removing container..."
+        docker rm "$container_name" > /dev/null 2>&1 || true
+
+        info "  Done: $container_name"
+        info "  Saved as: $saved_image"
+    }
+
+    case $1 in
+        --help|-h)
+            cmd_stop
+            ;;
+        --all|-a)
+            # Stop all franken-claude containers
+            CONTAINERS=$(docker ps -a --format '{{.Names}}' | grep "^franken-" || true)
+            if [ -z "$CONTAINERS" ]; then
+                warn "No franken-claude containers found"
+                exit 0
+            fi
+
+            echo "Stopping all franken-claude containers:"
+            echo "$CONTAINERS" | while read container; do
+                cleanup_container "$container"
+            done
+
+            info ""
+            info "All franken-claude containers stopped and removed"
+            ;;
+        *)
+            TARGET="$1"
+
+            # Check if it's a full container name (starts with franken-)
+            if [[ "$TARGET" == franken-* ]]; then
+                # Specific container
+                if ! docker ps -a --format '{{.Names}}' | grep -q "^${TARGET}$"; then
+                    error "Container not found: $TARGET"
+                fi
+                cleanup_container "$TARGET"
+            else
+                # Assume it's a profile name, stop all containers for that profile
+                PROFILE_CONTAINERS=$(docker ps -a --format '{{.Names}}' | grep "^franken-${TARGET}-" || true)
+
+                if [ -z "$PROFILE_CONTAINERS" ]; then
+                    error "No containers found for profile: $TARGET"
+                fi
+
+                echo "Stopping all containers for profile '$TARGET':"
+                echo "$PROFILE_CONTAINERS" | while read container; do
+                    cleanup_container "$container"
+                done
+
+                info ""
+                info "All containers for profile '$TARGET' stopped and removed"
+            fi
+            ;;
+    esac
+}
+
+# Command: list
+cmd_list() {
+    if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+        cat << EOF
+Usage: fc list
+
+List all franken-claude containers (running and stopped).
+
+Shows container name, status, port, and uptime.
+EOF
+        exit 0
+    fi
+
+    CONTAINERS=$(docker ps -a --format '{{.Names}}' --filter "name=^franken-" | sort || true)
+
+    if [ -z "$CONTAINERS" ]; then
+        warn "No franken-claude containers found"
+        exit 0
+    fi
+
+    blue "=========================================="
+    blue "  Franken-Claude Containers"
+    blue "=========================================="
+    echo ""
+
+    printf "%-30s %-12s %-15s %s\n" "CONTAINER" "STATUS" "PORT" "UPTIME"
+    printf "%-30s %-12s %-15s %s\n" "----------" "------" "----" "------"
+
+    echo "$CONTAINERS" | while read container; do
+        STATUS=$(docker inspect -f '{{.State.Status}}' "$container" 2>/dev/null || echo "unknown")
+        PORT=$(docker port "$container" 7681 2>/dev/null | cut -d: -f2 || echo "-")
+
+        if [ "$STATUS" == "running" ]; then
+            UPTIME=$(docker inspect -f '{{.State.StartedAt}}' "$container" 2>/dev/null | xargs -I {} date -j -f "%Y-%m-%dT%H:%M:%S" {} "+%Y-%m-%d %H:%M" 2>/dev/null || echo "-")
+            printf "${GREEN}%-30s${NC} %-12s %-15s %s\n" "$container" "$STATUS" "$PORT" "$UPTIME"
+        else
+            printf "%-30s ${YELLOW}%-12s${NC} %-15s %s\n" "$container" "$STATUS" "-" "-"
+        fi
+    done
+
+    echo ""
+}
+
+# Command: logs
+cmd_logs() {
+    if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
+        cat << EOF
+Usage: fc logs <container-name> [options]
+
+View logs for a franken-claude container.
+
+Options:
+  -f, --follow    Follow log output
+  -n, --tail N    Show last N lines (default: 100)
+  --help, -h      Show this help message
+
+Example:
+  fc logs franken-dev-1
+  fc logs franken-dev-1 -f
+  fc logs franken-dev-1 --tail 50
+EOF
+        exit 0
+    fi
+
+    CONTAINER="$1"
+    shift
+
+    if ! docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
+        error "Container not found: $CONTAINER"
+    fi
+
+    docker logs "$@" "$CONTAINER"
+}
+
+# Command: exec
+cmd_exec() {
+    if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
+        cat << EOF
+Usage: fc exec <container-name> <command>
+
+Execute a command in a running franken-claude container.
+
+Example:
+  fc exec franken-dev-1 "aws sts get-caller-identity"
+  fc exec franken-dev-1 "git status"
+EOF
+        exit 0
+    fi
+
+    CONTAINER="$1"
+    shift
+
+    if ! docker ps --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
+        error "Container not running: $CONTAINER"
+    fi
+
+    if [ $# -eq 0 ]; then
+        # Interactive bash if no command provided
+        docker exec -it "$CONTAINER" bash
+    else
+        # Execute provided command
+        docker exec "$CONTAINER" bash -c "$*"
+    fi
+}
+
+# Command: rebuild
+cmd_rebuild() {
+    if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+        cat << EOF
+Usage: fc rebuild
+
+Rebuild the franken-claude Docker image from scratch.
+
+This will:
+  1. Remove the existing franken-claude image
+  2. Rebuild it with the latest Dockerfile and scripts
+
+Use this when you've updated the Dockerfile or container scripts.
+EOF
+        exit 0
+    fi
+
+    info "Removing existing franken-claude image..."
+    docker rmi "$IMAGE_NAME" 2>/dev/null || true
+
+    info "Building new franken-claude image..."
+    docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" || error "Failed to build Docker image"
+
+    info ""
+    info "Image rebuilt successfully!"
+}
+
+# Command: version
+cmd_version() {
+    echo "fc (franken-claude) v${VERSION}"
+}
+
+# Main command router
+COMMAND="${1:-help}"
+shift || true
+
+case "$COMMAND" in
+    start)
+        cmd_start "$@"
+        ;;
+    stop)
+        cmd_stop "$@"
+        ;;
+    list|ls)
+        cmd_list "$@"
+        ;;
+    logs)
+        cmd_logs "$@"
+        ;;
+    exec)
+        cmd_exec "$@"
+        ;;
+    rebuild)
+        cmd_rebuild "$@"
+        ;;
+    version|--version|-v)
+        cmd_version
+        ;;
+    help|--help|-h)
+        usage
+        ;;
+    *)
+        error "Unknown command: $COMMAND\nRun 'fc help' for usage."
+        ;;
+esac

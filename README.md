@@ -29,10 +29,12 @@ cp .claude/settings.local.json.example .claude/settings.local.json
 
 ## Usage
 
-### Launch a container
+The `fc` CLI provides commands to manage franken-claude containers:
+
+### Start a container
 
 ```bash
-./franken-claude --profile <aws-profile> --repo <path-to-git-repo>
+fc start --profile <aws-profile> --repo <path-to-git-repo>
 ```
 
 This will:
@@ -43,24 +45,57 @@ This will:
 
 Each new browser tab to the same URL creates a new git worktree (`franken-1`, `franken-2`, etc.).
 
+### List containers
+
+```bash
+fc list
+```
+
+Shows all franken-claude containers with their status, port, and uptime.
+
+### View logs
+
+```bash
+fc logs <container-name>           # View logs
+fc logs <container-name> -f        # Follow logs
+fc logs <container-name> --tail 50 # Last 50 lines
+```
+
+### Execute commands
+
+```bash
+fc exec <container-name> "command"  # Run a command
+fc exec <container-name>            # Interactive bash shell
+```
+
 ### Stop containers
 
 ```bash
-# Stop a specific container
-./franken-claude-stop franken-myprofile-1
-
-# Stop all containers for a profile
-./franken-claude-stop myprofile
-
-# Stop all franken-claude containers
-./franken-claude-stop --all
+fc stop <container-name>        # Stop specific container
+fc stop <profile>               # Stop all containers for profile
+fc stop --all                   # Stop all franken-claude containers
 ```
 
-Stopping cleans up git worktrees automatically.
+Stopping automatically cleans up git worktrees and saves the container state to a timestamped image.
+
+### Rebuild image
+
+```bash
+fc rebuild
+```
+
+Rebuilds the Docker image from scratch (useful after updating Dockerfile or scripts).
+
+### Get help
+
+```bash
+fc help                    # Show all commands
+fc <command> --help        # Show help for specific command
+```
 
 ## Environment Variables
 
-Set these on your host machine before running `franken-claude`:
+Set these on your host machine before running `fc start`:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
