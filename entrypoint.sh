@@ -15,12 +15,16 @@ echo "AWS Profile: ${AWS_PROFILE:-not set}"
 echo "AWS Region: ${AWS_REGION:-not set}"
 echo "Workspace: /workspace"
 echo ""
-echo "Starting web terminal on port 7681..."
+echo "Starting nginx on port 7681..."
+echo "Starting ttyd on port 7682..."
 echo ""
 
-# Start ttyd with the terminal init script
+# Start nginx in background
+nginx
+
+# Start ttyd on port 7682 (proxied by nginx)
 # Each new terminal connection will create a new worktree
 exec ttyd \
-    --port 7681 \
+    --port 7682 \
     --writable \
     /terminal-init.sh

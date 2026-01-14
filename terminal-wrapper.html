@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Franken-Claude Terminal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #terminal-frame {
+            width: 100vw;
+            height: 100vh;
+            border: none;
+        }
+
+        #notification-status {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 4px;
+            font-size: 12px;
+            color: #888;
+            z-index: 1000;
+            display: none;
+        }
+
+        #notification-status.enabled {
+            color: #4caf50;
+        }
+
+        #notification-status.disabled {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div id="notification-status"></div>
+    <iframe id="terminal-frame" src="http://localhost:7681"></iframe>
+
+    <script>
+        // Notification state
+        let notificationEnabled = false;
+        let lastNotificationTime = 0;
+        const NOTIFICATION_COOLDOWN = 5000; // 5 seconds between notifications
+
+        // Request notification permission
+        async function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                console.log("This browser does not support notifications");
+                return false;
+            }
+
+            if (Notification.permission === "granted") {
+                notificationEnabled = true;
+                updateStatus();
+                return true;
+            }
+
+            if (Notification.permission !== "denied") {
+                const permission = await Notification.requestPermission();
+                notificationEnabled = permission === "granted";
+                updateStatus();
+                return notificationEnabled;
+            }
+
+            return false;
+        }
+
+        // Update notification status display
+        function updateStatus() {
+            const status = document.getElementById('notification-status');
+            if (notificationEnabled) {
+                status.textContent = '🔔 Notifications enabled';
+                status.className = 'enabled';
+            } else {
+                status.textContent = '🔕 Notifications disabled';
+                status.className = 'disabled';
+            }
+            status.style.display = 'block';
+
+            // Hide after 3 seconds
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+
+        // Send notification
+        function sendNotification(title, body) {
+            if (!notificationEnabled) return;
+
+            const now = Date.now();
+            if (now - lastNotificationTime < NOTIFICATION_COOLDOWN) {
+                return; // Cooldown period
+            }
+
+            lastNotificationTime = now;
+
+            const notification = new Notification(title, {
+                body: body,
+                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="75" font-size="75">🤖</text></svg>',
+                tag: 'claude-prompt',
+                requireInteraction: true
+            });
+
+            notification.onclick = function() {
+                window.focus();
+                notification.close();
+            };
+
+            // Also flash the tab title
+            flashTitle('⚠️ Claude needs input!');
+        }
+
+        // Flash page title
+        function flashTitle(message) {
+            const originalTitle = document.title;
+            let count = 0;
+
+            const flashInterval = setInterval(() => {
+                document.title = count % 2 === 0 ? message : originalTitle;
+                count++;
+
+                if (count > 10 || document.hasFocus()) {
+                    clearInterval(flashInterval);
+                    document.title = originalTitle;
+                }
+            }, 1000);
+        }
+
+        // Monitor terminal output via iframe content (limited by same-origin policy)
+        // Since we can't directly access iframe content from ttyd, we'll use a polling approach
+        // that checks if the window is focused and assumes Claude is waiting if unfocused for a while
+        let isWaiting = false;
+        let unfocusedStartTime = null;
+        const UNFOCUSED_THRESHOLD = 30000; // 30 seconds
+
+        // Better approach: Monitor document title changes from ttyd
+        // ttyd updates the title with terminal output
+        let lastTitle = document.title;
+
+        setInterval(() => {
+            // Check if window is unfocused for extended period
+            if (!document.hasFocus()) {
+                if (unfocusedStartTime === null) {
+                    unfocusedStartTime = Date.now();
+                } else if (Date.now() - unfocusedStartTime > UNFOCUSED_THRESHOLD && !isWaiting) {
+                    isWaiting = true;
+                    sendNotification(
+                        'Claude may need input',
+                        'Terminal has been inactive. Check if Claude is waiting for your response.'
+                    );
+                }
+            } else {
+                unfocusedStartTime = null;
+                isWaiting = false;
+            }
+        }, 5000);
+
+        // Listen for visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                unfocusedStartTime = Date.now();
+            } else {
+                unfocusedStartTime = null;
+                isWaiting = false;
+            }
+        });
+
+        // Alternative: Use MutationObserver to watch for pattern in page title or body
+        // This is a workaround since we can't directly access iframe content
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.target.nodeName === 'TITLE') {
+                    const title = document.title;
+
+                    // Check for common Claude prompt patterns in title
+                    const promptPatterns = [
+                        /continue/i,
+                        /approve/i,
+                        /proceed/i,
+                        /\?$/,
+                        /waiting/i,
+                        /input/i,
+                        /response/i
+                    ];
+
+                    if (promptPatterns.some(pattern => pattern.test(title)) && !document.hasFocus()) {
+                        sendNotification(
+                            'Claude needs input',
+                            'Claude is waiting for your response'
+                        );
+                    }
+                }
+            });
+        });
+
+        // Start observing title changes
+        const titleElement = document.querySelector('title');
+        if (titleElement) {
+            observer.observe(titleElement, {
+                childList: true,
+                characterData: true,
+                subtree: true
+            });
+        }
+
+        // Request permission on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                requestNotificationPermission();
+            }, 1000);
+        });
+
+        // Toggle notifications with keyboard shortcut (Ctrl+Shift+N)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+                e.preventDefault();
+                if (notificationEnabled) {
+                    notificationEnabled = false;
+                } else {
+                    requestNotificationPermission();
+                }
+                updateStatus();
+            }
+        });
+    </script>
+</body>
+</html>

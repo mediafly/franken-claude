@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     nodejs \
     npm \
+    nginx \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -60,6 +61,26 @@ RUN chmod +x /entrypoint.sh
 # Copy terminal init script (creates worktree and cd's into it)
 COPY terminal-init.sh /terminal-init.sh
 RUN chmod +x /terminal-init.sh
+
+# Copy terminal wrapper HTML
+COPY terminal-wrapper.html /var/www/html/index.html
+
+# Configure nginx
+RUN echo 'server { \n\
+    listen 7681; \n\
+    root /var/www/html; \n\
+    index index.html; \n\
+    location / { \n\
+        try_files $uri $uri/ =404; \n\
+    } \n\
+    location /terminal { \n\
+        proxy_pass http://127.0.0.1:7682; \n\
+        proxy_http_version 1.1; \n\
+        proxy_set_header Upgrade $http_upgrade; \n\
+        proxy_set_header Connection "upgrade"; \n\
+        proxy_set_header Host $host; \n\
+    } \n\
+}' > /etc/nginx/sites-available/default
 
 WORKDIR /workspace
 
