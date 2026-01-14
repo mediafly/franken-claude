@@ -54,6 +54,12 @@ cleanup_container() {
         rm -rf /worktrees/* 2>/dev/null || true
     ' 2>/dev/null || true
 
+    # Commit container state to a new image before stopping
+    local timestamp=$(date +%Y%m%d-%H%M%S)
+    local saved_image="${container_name}:${timestamp}"
+    echo "  Saving container state to image: $saved_image"
+    docker commit "$container_name" "$saved_image" > /dev/null 2>&1 || warn "  Warning: Failed to save container state"
+
     # Stop and remove the container
     echo "  Stopping container..."
     docker stop "$container_name" > /dev/null 2>&1 || true
@@ -62,6 +68,7 @@ cleanup_container() {
     docker rm "$container_name" > /dev/null 2>&1 || true
 
     info "  Done: $container_name"
+    info "  Saved as: $saved_image"
 }
 
 # Parse arguments

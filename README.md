@@ -19,7 +19,7 @@ A wrapper to launch sandboxed Claude Code containers in OrbStack/Docker with AWS
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/franken-claude.git
+git clone https://github.com/mediafly/franken-claude.git
 cd franken-claude
 
 # Copy and configure MCP settings (optional, for local development)
@@ -60,7 +60,25 @@ Stopping cleans up git worktrees automatically.
 
 ## Environment Variables
 
-- `CONTEXT7_API_KEY` - Optional, passed to container for context7 MCP server
+Set these on your host machine before running `franken-claude`:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CLAUDE_OAUTH_TOKEN` | Recommended | Claude subscription OAuth token for auto-authentication. Get this by running `claude setup-token` on your host machine. |
+| `CONTEXT7_API_KEY` | Optional | API key for the context7 MCP server. Get one at [context7.com/dashboard](https://context7.com/dashboard). |
+
+### Setting up Claude authentication
+
+To avoid having to authenticate in the browser every time you launch a container:
+
+1. Run `claude setup-token` on your host machine and follow the prompts
+2. Copy the token value
+3. Set it as an environment variable:
+   ```bash
+   # Add to your ~/.bashrc, ~/.zshrc, or equivalent
+   export CLAUDE_OAUTH_TOKEN="your-token-here"
+   ```
+4. The token will be automatically injected into containers at launch
 
 ## What's in the container
 

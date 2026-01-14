@@ -67,5 +67,5 @@ echo ""
 echo "=========================================="
 echo ""
 
-# Start interactive bash
-exec bash
+# Start Claude Code
+exec claude

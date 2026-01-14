@@ -143,6 +143,8 @@ info "Mounting repository: $REPO_PATH"
 info "Web terminal will be available at: http://localhost:$PORT"
 
 # Run the container
+# Note: We do NOT set AWS_PROFILE inside the container because there's no
+# ~/.aws/config file there. The AWS CLI will use the credential env vars directly.
 docker run -d \
     --name "$CONTAINER_NAME" \
     -p "${PORT}:7681" \
@@ -152,8 +154,8 @@ docker run -d \
     -e "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}" \
     -e "AWS_REGION=${AWS_REGION}" \
     -e "AWS_DEFAULT_REGION=${AWS_REGION}" \
-    -e "AWS_PROFILE=${AWS_PROFILE}" \
     -e "CONTEXT7_API_KEY=${CONTEXT7_API_KEY:-}" \
+    -e "ANTHROPIC_AUTH_TOKEN=${CLAUDE_OAUTH_TOKEN:-}" \
     "$IMAGE_NAME" || error "Failed to start container"
 
 # Wait a moment for ttyd to start

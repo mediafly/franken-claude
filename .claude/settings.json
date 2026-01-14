@@ -4,7 +4,20 @@
       "Bash(chmod:*)",
       "Bash(docker build:*)",
       "Bash(/Users/tegryan/Documents/git/franken-claude/franken-claude:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(gh repo create:*)",
+      "Bash(git push:*)",
+      "Bash(gh repo list:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(docker exec:*)",
+      "Bash(./franken-claude-stop:*)",
+      "Bash(./franken-claude:*)",
+      "Bash(claude setup-token:*)",
+      "Read(//Users/tegryan/.claude/**)",
+      "Bash(ls:*)"
     ]
   }
 }
