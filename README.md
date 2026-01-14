@@ -39,11 +39,28 @@ The `fc` CLI provides commands to manage franken-claude containers:
 ### Start a container
 
 ```bash
-fc start --profile <aws-profile> --repo <path-to-git-repo>
+fc start --profile <aws-profile> --repo <path-to-git-repo> [--read-only]
+```
+
+**Options:**
+- `--profile, -p`: AWS SSO profile name, or `all` to mount entire `~/.aws` directory
+- `--repo, -r`: Path to git repository to mount
+- `--read-only`: Mount repository as read-only (optional)
+
+**Examples:**
+```bash
+# Start with specific profile
+fc start --profile dev --repo ~/projects/my-app
+
+# Start with all AWS profiles available (mounts ~/.aws)
+fc start --profile all --repo ~/projects/my-app
+
+# Start in read-only mode
+fc start --profile dev --repo ~/projects/my-app --read-only
 ```
 
 This will:
-1. Check AWS SSO credentials (auto-triggers `aws sso login` if expired)
+1. Check AWS SSO credentials (auto-triggers `aws sso login` if expired, unless using `--profile all`)
 2. Build the Docker image (first run only)
 3. Start a container named `franken-<profile>-<n>`
 4. Open a web terminal in your browser at `http://localhost:7681`

@@ -54,6 +54,8 @@ Run 'fc <command> --help' for more information on a command.
 
 Examples:
   fc start --profile dev --repo ~/projects/my-app
+  fc start --profile all --repo ~/projects/my-app
+  fc start --profile dev --repo ~/projects/my-app --read-only
   fc list
   fc logs franken-dev-1
   fc stop dev
@@ -66,6 +68,7 @@ EOF
 cmd_start() {
     local AWS_PROFILE=""
     local REPO_PATH=""
+    local READ_ONLY=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -77,19 +80,26 @@ cmd_start() {
                 REPO_PATH="$2"
                 shift 2
                 ;;
+            --read-only)
+                READ_ONLY=true
+                shift
+                ;;
             --help|-h)
                 cat << EOF
-Usage: fc start --profile <aws-profile> --repo <path-to-git-repo>
+Usage: fc start --profile <aws-profile> --repo <path-to-git-repo> [options]
 
 Start a new franken-claude container with AWS SSO credentials.
 
 Options:
-  --profile, -p    AWS SSO profile name (required)
+  --profile, -p    AWS SSO profile name or "all" to mount entire ~/.aws (required)
   --repo, -r       Path to git repository to mount (required)
+  --read-only      Mount repository as read-only
   --help, -h       Show this help message
 
-Example:
+Examples:
   fc start --profile my-dev-account --repo ~/projects/my-app
+  fc start --profile all --repo ~/projects/my-app
+  fc start --profile dev --repo ~/projects/my-app --read-only
 EOF
                 exit 0
                 ;;
@@ -122,42 +132,59 @@ EOF
         docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" || error "Failed to build Docker image"
     fi
 
-    # Extract AWS credentials
-    info "Checking AWS credentials for profile: $AWS_PROFILE"
+    # Handle "all" profile - mount entire ~/.aws directory
+    local MOUNT_AWS_DIR=false
+    local AWS_ACCESS_KEY_ID=""
+    local AWS_SECRET_ACCESS_KEY=""
+    local AWS_SESSION_TOKEN=""
+    local AWS_REGION="us-east-1"
 
-    # Try to get credentials, if it fails, run SSO login
-    if ! CREDS_JSON=$(aws configure export-credentials --profile "$AWS_PROFILE" --format env-no-export 2>&1); then
-        echo ""
-        warn "AWS SSO credentials expired or not found"
-        info "Launching SSO login for profile: $AWS_PROFILE"
-        echo ""
+    if [ "$AWS_PROFILE" == "all" ]; then
+        info "Using 'all' profile - will mount ~/.aws directory"
+        MOUNT_AWS_DIR=true
 
-        if ! aws sso login --profile "$AWS_PROFILE"; then
-            error "SSO login failed"
+        # Check if ~/.aws exists
+        if [ ! -d "$HOME/.aws" ]; then
+            error "~/.aws directory not found"
+        fi
+    else
+        # Extract AWS credentials for specific profile
+        info "Checking AWS credentials for profile: $AWS_PROFILE"
+
+        # Try to get credentials, if it fails, run SSO login
+        if ! CREDS_JSON=$(aws configure export-credentials --profile "$AWS_PROFILE" --format env-no-export 2>&1); then
+            echo ""
+            warn "AWS SSO credentials expired or not found"
+            info "Launching SSO login for profile: $AWS_PROFILE"
+            echo ""
+
+            if ! aws sso login --profile "$AWS_PROFILE"; then
+                error "SSO login failed"
+            fi
+
+            echo ""
+            info "SSO login successful, extracting credentials..."
+
+            CREDS_JSON=$(aws configure export-credentials --profile "$AWS_PROFILE" --format env-no-export 2>&1) || {
+                error "Failed to extract credentials after SSO login"
+            }
         fi
 
-        echo ""
-        info "SSO login successful, extracting credentials..."
+        # Parse credentials from env-no-export format
+        AWS_ACCESS_KEY_ID=$(echo "$CREDS_JSON" | grep "AWS_ACCESS_KEY_ID=" | cut -d'=' -f2)
+        AWS_SECRET_ACCESS_KEY=$(echo "$CREDS_JSON" | grep "AWS_SECRET_ACCESS_KEY=" | cut -d'=' -f2)
+        AWS_SESSION_TOKEN=$(echo "$CREDS_JSON" | grep "AWS_SESSION_TOKEN=" | cut -d'=' -f2)
 
-        CREDS_JSON=$(aws configure export-credentials --profile "$AWS_PROFILE" --format env-no-export 2>&1) || {
-            error "Failed to extract credentials after SSO login"
-        }
+        if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            error "Failed to extract AWS credentials"
+        fi
+
+        # Get region from profile
+        AWS_REGION=$(aws configure get region --profile "$AWS_PROFILE" 2>/dev/null || echo "us-east-1")
+
+        info "AWS credentials extracted successfully"
+        info "Region: $AWS_REGION"
     fi
-
-    # Parse credentials from env-no-export format
-    AWS_ACCESS_KEY_ID=$(echo "$CREDS_JSON" | grep "AWS_ACCESS_KEY_ID=" | cut -d'=' -f2)
-    AWS_SECRET_ACCESS_KEY=$(echo "$CREDS_JSON" | grep "AWS_SECRET_ACCESS_KEY=" | cut -d'=' -f2)
-    AWS_SESSION_TOKEN=$(echo "$CREDS_JSON" | grep "AWS_SESSION_TOKEN=" | cut -d'=' -f2)
-
-    if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
-        error "Failed to extract AWS credentials"
-    fi
-
-    # Get region from profile
-    AWS_REGION=$(aws configure get region --profile "$AWS_PROFILE" 2>/dev/null || echo "us-east-1")
-
-    info "AWS credentials extracted successfully"
-    info "Region: $AWS_REGION"
 
     # Find next available container number for this profile
     CONTAINER_BASE="franken-${AWS_PROFILE}"
@@ -176,22 +203,38 @@ EOF
     done
 
     info "Starting container: $CONTAINER_NAME"
-    info "Mounting repository: $REPO_PATH"
+    info "Mounting repository: $REPO_PATH $([ "$READ_ONLY" == "true" ] && echo "(read-only)" || echo "")"
     info "Web terminal will be available at: http://localhost:$PORT"
 
+    # Build docker run command
+    local DOCKER_CMD="docker run -d --name \"$CONTAINER_NAME\" -p \"${PORT}:7681\""
+
+    # Add workspace mount (read-only or read-write)
+    if [ "$READ_ONLY" == "true" ]; then
+        DOCKER_CMD="$DOCKER_CMD -v \"${REPO_PATH}:/workspace:ro\""
+    else
+        DOCKER_CMD="$DOCKER_CMD -v \"${REPO_PATH}:/workspace\""
+    fi
+
+    # Add AWS directory mount or credentials as env vars
+    if [ "$MOUNT_AWS_DIR" == "true" ]; then
+        DOCKER_CMD="$DOCKER_CMD -v \"${HOME}/.aws:/root/.aws:ro\""
+        info "Mounting ~/.aws directory (read-only)"
+    else
+        DOCKER_CMD="$DOCKER_CMD -e \"AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}\""
+        DOCKER_CMD="$DOCKER_CMD -e \"AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}\""
+        DOCKER_CMD="$DOCKER_CMD -e \"AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}\""
+        DOCKER_CMD="$DOCKER_CMD -e \"AWS_REGION=${AWS_REGION}\""
+        DOCKER_CMD="$DOCKER_CMD -e \"AWS_DEFAULT_REGION=${AWS_REGION}\""
+    fi
+
+    # Add other env vars
+    DOCKER_CMD="$DOCKER_CMD -e \"CONTEXT7_API_KEY=${CONTEXT7_API_KEY:-}\""
+    DOCKER_CMD="$DOCKER_CMD -e \"ANTHROPIC_AUTH_TOKEN=${CLAUDE_OAUTH_TOKEN:-}\""
+    DOCKER_CMD="$DOCKER_CMD \"$IMAGE_NAME\""
+
     # Run the container
-    docker run -d \
-        --name "$CONTAINER_NAME" \
-        -p "${PORT}:7681" \
-        -v "${REPO_PATH}:/workspace" \
-        -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
-        -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
-        -e "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}" \
-        -e "AWS_REGION=${AWS_REGION}" \
-        -e "AWS_DEFAULT_REGION=${AWS_REGION}" \
-        -e "CONTEXT7_API_KEY=${CONTEXT7_API_KEY:-}" \
-        -e "ANTHROPIC_AUTH_TOKEN=${CLAUDE_OAUTH_TOKEN:-}" \
-        "$IMAGE_NAME" || error "Failed to start container"
+    eval $DOCKER_CMD || error "Failed to start container"
 
     # Wait a moment for ttyd to start
     sleep 2

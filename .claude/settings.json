@@ -17,7 +17,8 @@
       "Bash(./franken-claude:*)",
       "Bash(claude setup-token:*)",
       "Read(//Users/tegryan/.claude/**)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(./fc start:*)"
     ]
   }
 }
