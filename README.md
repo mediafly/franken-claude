@@ -112,7 +112,7 @@ Rebuilds the Docker image from scratch (useful after updating Dockerfile or scri
 
 ```bash
 franken help                    # Show all commands
-fc <command> --help        # Show help for specific command
+franken <command> --help        # Show help for specific command
 ```
 
 ## Environment Variables
