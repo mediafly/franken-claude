@@ -53,13 +53,13 @@ Commands:
 Run 'franken <command> --help' for more information on a command.
 
 Examples:
-  fc start --profile dev --repo ~/projects/my-app
-  fc start --profile all --repo ~/projects/my-app
-  fc start --profile dev --repo ~/projects/my-app --read-only
-  fc list
-  fc logs franken-dev-1
-  fc stop dev
-  fc exec franken-dev-1 "aws sts get-caller-identity"
+  franken start --profile dev --repo ~/projects/my-app
+  franken start --profile all --repo ~/projects/my-app
+  franken start --profile dev --repo ~/projects/my-app --read-only
+  franken list
+  franken logs franken-dev-1
+  franken stop dev
+  franken exec franken-dev-1 "aws sts get-caller-identity"
 EOF
     exit 0
 }
@@ -86,7 +86,7 @@ cmd_start() {
                 ;;
             --help|-h)
                 cat << EOF
-Usage: fc start --profile <aws-profile> --repo <path-to-git-repo> [options]
+Usage: franken start --profile <aws-profile> --repo <path-to-git-repo> [options]
 
 Start a new franken-claude container with AWS SSO credentials.
 
@@ -97,9 +97,9 @@ Options:
   --help, -h       Show this help message
 
 Examples:
-  fc start --profile my-dev-account --repo ~/projects/my-app
-  fc start --profile all --repo ~/projects/my-app
-  fc start --profile dev --repo ~/projects/my-app --read-only
+  franken start --profile my-dev-account --repo ~/projects/my-app
+  franken start --profile all --repo ~/projects/my-app
+  franken start --profile dev --repo ~/projects/my-app --read-only
 EOF
                 exit 0
                 ;;
@@ -259,8 +259,8 @@ EOF
     info "Open additional terminal tabs at the same URL."
     info "Each tab gets its own git worktree."
     info ""
-    info "To stop: fc stop $CONTAINER_NAME"
-    info "         fc stop $AWS_PROFILE  (stops all)"
+    info "To stop: franken stop $CONTAINER_NAME"
+    info "         franken stop $AWS_PROFILE  (stops all)"
     info ""
 
     # Open browser
@@ -275,13 +275,13 @@ EOF
 cmd_stop() {
     if [ $# -eq 0 ]; then
         cat << EOF
-Usage: fc stop <profile-or-container-name>
+Usage: frankenstop <profile-or-container-name>
 
 Stop and save franken-claude container(s).
 
 Examples:
-  fc stop myprofile           # Stop all containers for 'myprofile'
-  fc stop franken-myprofile-2 # Stop specific container
+  frankenstop myprofile           # Stop all containers for 'myprofile'
+  frankenstop franken-myprofile-2 # Stop specific container
 
 Options:
   --all, -a    Stop all franken-claude containers
@@ -378,7 +378,7 @@ EOF
 cmd_list() {
     if [[ "$1" == "--help" || "$1" == "-h" ]]; then
         cat << EOF
-Usage: fc list
+Usage: frankenlist
 
 List all franken-claude containers (running and stopped).
 
@@ -421,7 +421,7 @@ EOF
 cmd_logs() {
     if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
         cat << EOF
-Usage: fc logs <container-name> [options]
+Usage: frankenlogs <container-name> [options]
 
 View logs for a franken-claude container.
 
@@ -431,9 +431,9 @@ Options:
   --help, -h      Show this help message
 
 Example:
-  fc logs franken-dev-1
-  fc logs franken-dev-1 -f
-  fc logs franken-dev-1 --tail 50
+  frankenlogs franken-dev-1
+  frankenlogs franken-dev-1 -f
+  frankenlogs franken-dev-1 --tail 50
 EOF
         exit 0
     fi
@@ -452,13 +452,13 @@ EOF
 cmd_exec() {
     if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
         cat << EOF
-Usage: fc exec <container-name> <command>
+Usage: frankenexec <container-name> <command>
 
 Execute a command in a running franken-claude container.
 
 Example:
-  fc exec franken-dev-1 "aws sts get-caller-identity"
-  fc exec franken-dev-1 "git status"
+  frankenexec franken-dev-1 "aws sts get-caller-identity"
+  frankenexec franken-dev-1 "git status"
 EOF
         exit 0
     fi
@@ -483,7 +483,7 @@ EOF
 cmd_rebuild() {
     if [[ "$1" == "--help" || "$1" == "-h" ]]; then
         cat << EOF
-Usage: fc rebuild
+Usage: frankenrebuild
 
 Rebuild the franken-claude Docker image from scratch.
 
@@ -508,7 +508,7 @@ EOF
 
 # Command: version
 cmd_version() {
-    echo "fc (franken-claude) v${VERSION}"
+    echo "franken (franken-claude) v${VERSION}"
 }
 
 # Main command router
@@ -541,6 +541,6 @@ case "$COMMAND" in
         usage
         ;;
     *)
-        error "Unknown command: $COMMAND\nRun 'fc help' for usage."
+        error "Unknown command: $COMMAND\nRun 'franken help' for usage."
         ;;
 esac
