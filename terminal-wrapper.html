@@ -51,6 +51,41 @@
     <iframe id="terminal-frame" src="/terminal/"></iframe>
 
     <script>
+        // Terminal loading state
+        let terminalLoaded = false;
+        let loadAttempts = 0;
+        const MAX_LOAD_ATTEMPTS = 10;
+
+        // Check if terminal has loaded and retry if needed
+        function checkTerminalLoaded() {
+            const iframe = document.getElementById('terminal-frame');
+
+            // Try to detect if iframe loaded successfully
+            // If it hasn't loaded after 2 seconds, try reloading
+            setTimeout(() => {
+                if (!terminalLoaded && loadAttempts < MAX_LOAD_ATTEMPTS) {
+                    loadAttempts++;
+                    console.log(`Terminal not loaded, retrying (attempt ${loadAttempts})...`);
+                    iframe.src = iframe.src; // Reload iframe
+                    checkTerminalLoaded(); // Check again
+                }
+            }, 2000);
+        }
+
+        // Start checking after page load
+        window.addEventListener('load', () => {
+            const iframe = document.getElementById('terminal-frame');
+
+            // Mark as loaded when iframe loads
+            iframe.addEventListener('load', () => {
+                terminalLoaded = true;
+                console.log('Terminal loaded successfully');
+            });
+
+            // Start checking
+            checkTerminalLoaded();
+        });
+
         // Notification state
         let notificationEnabled = false;
         let lastNotificationTime = 0;
