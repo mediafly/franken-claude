@@ -3,7 +3,7 @@ FROM debian:bookworm-slim
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install base dependencies
+# Install base dependencies including Python build dependencies
 RUN apt-get update && apt-get install -y \
     bash \
     curl \
@@ -15,6 +15,19 @@ RUN apt-get update && apt-get install -y \
     nodejs \
     npm \
     nginx \
+    build-essential \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -34,6 +47,17 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "aws
 # Install uv (Python package manager)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
+
+# Install Python 3.13 (required for mcp-launchpad)
+RUN curl -LsSf https://github.com/indygreg/python-build-standalone/releases/download/20241016/cpython-3.13.0+20241016-$(uname -m)-unknown-linux-gnu-install_only.tar.gz -o python.tar.gz \
+    && tar -xzf python.tar.gz -C /opt \
+    && rm python.tar.gz \
+    && ln -sf /opt/python/bin/python3.13 /usr/local/bin/python3 \
+    && ln -sf /opt/python/bin/python3.13 /usr/local/bin/python
+ENV PATH="/opt/python/bin:$PATH"
+
+# Install mcp-launchpad
+RUN /root/.local/bin/uv tool install https://github.com/kenneth-liao/mcp-launchpad.git
 
 # Install ttyd (web terminal)
 RUN ARCH=$(dpkg --print-architecture) && \
