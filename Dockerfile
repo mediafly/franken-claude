@@ -77,6 +77,9 @@ RUN mkdir -p /workspace /worktrees
 # Copy default Claude settings (will be installed by entrypoint if needed)
 COPY claude-settings.json /opt/claude-settings-default.json
 
+# Copy MCP Launchpad instructions for Claude Code
+COPY MCPL.md /root/CLAUDE.md
+
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
