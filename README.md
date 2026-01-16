@@ -191,6 +191,30 @@ cp -r ~/.claude-containers/franken-dev-1 ~/backups/
 rm -rf ~/.claude-containers/franken-old-container
 ```
 
+## Using MCP Launchpad
+
+The container includes [mcp-launchpad](https://github.com/kenneth-liao/mcp-launchpad), a lightweight CLI for efficiently discovering and executing tools from multiple MCP servers.
+
+**Available commands:**
+- `mcp-launchpad` - Full command
+- `mcpl` - Short alias
+
+**Features:**
+- Unified tool discovery across all configured MCP servers
+- BM25 search, regex matching, or exact matching
+- Persistent server connections through a session daemon
+- Automatic configuration loading from Claude settings
+
+**Example usage:**
+```bash
+# Inside a franken-claude container
+mcpl search "aws"           # Find AWS-related tools
+mcpl list                   # List all available tools
+mcpl execute <tool-name>    # Execute a specific tool
+```
+
+The tool automatically reads your MCP server configuration from `/root/.claude/settings.local.json`.
+
 ## What's in the container
 
 - debian:bookworm-slim base
@@ -198,7 +222,9 @@ rm -rf ~/.claude-containers/franken-old-container
 - ttyd (web terminal)
 - git, gh, curl, jq
 - AWS CLI v2
+- Python 3.13
 - uv (Python package manager)
+- mcp-launchpad (MCP server tool discovery CLI)
 - Pre-configured MCP servers
 
 ## License
