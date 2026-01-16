@@ -70,15 +70,19 @@ RUN echo 'server { \n\
     listen 7681; \n\
     root /var/www/html; \n\
     index index.html; \n\
-    location / { \n\
-        try_files $uri $uri/ =404; \n\
+    location = / { \n\
+        try_files /index.html =404; \n\
     } \n\
     location /terminal { \n\
+        rewrite ^/terminal(/.*)$ $1 break; \n\
         proxy_pass http://127.0.0.1:7682; \n\
         proxy_http_version 1.1; \n\
         proxy_set_header Upgrade $http_upgrade; \n\
         proxy_set_header Connection "upgrade"; \n\
         proxy_set_header Host $host; \n\
+        proxy_set_header X-Real-IP $remote_addr; \n\
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
+        proxy_set_header X-Forwarded-Proto $scheme; \n\
     } \n\
 }' > /etc/nginx/sites-available/default
 
