@@ -10,6 +10,7 @@ A wrapper to launch sandboxed Claude Code containers in OrbStack/Docker with AWS
 - Each terminal tab gets its own git worktree for parallel work
 - Pre-configured MCP servers (context7, sequential-thinking, aws-documentation, aws-knowledge, aws-core)
 - Desktop notifications when Claude is waiting for user input
+- Persistent Claude data storage (session history, settings) across container restarts
 
 ## Prerequisites
 
@@ -159,6 +160,36 @@ The system detects these common Claude prompt patterns:
 - Questions ending with `?`
 - Keywords: "continue", "approve", "proceed", "waiting", "input", "response"
 - Extended inactivity when the window is unfocused (30+ seconds)
+
+## Data Persistence
+
+Claude Code session data, conversation history, and settings are automatically persisted across container restarts. Each container gets its own isolated data directory on your host machine.
+
+**Storage location:** `~/.claude-containers/<container-name>/`
+
+This directory contains:
+- Conversation history and session state
+- Claude Code settings and preferences
+- MCP server configurations
+- Any other Claude-related data
+
+**Benefits:**
+- Resume conversations after restarting containers
+- Maintain your settings and preferences
+- Each container's data is isolated from others
+- Easy to back up or inspect on the host machine
+
+**Managing storage:**
+```bash
+# View all container data directories
+ls -la ~/.claude-containers/
+
+# Back up a container's data
+cp -r ~/.claude-containers/franken-dev-1 ~/backups/
+
+# Remove data for stopped containers
+rm -rf ~/.claude-containers/franken-old-container
+```
 
 ## What's in the container
 
