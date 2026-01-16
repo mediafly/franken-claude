@@ -129,7 +129,11 @@ EOF
     # Build image if it doesn't exist
     if ! docker image inspect "$IMAGE_NAME" &> /dev/null; then
         info "Building frank-claude image (this may take a few minutes)..."
-        docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" || error "Failed to build Docker image"
+        if [ -f "$SCRIPT_DIR/Dockerfile" ]; then
+            docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" || error "Failed to build Docker image"
+        else
+            error "Cannot build image: Dockerfile not found at $SCRIPT_DIR/Dockerfile\nPlease clone the frank-claude repository and run from that directory."
+        fi
     fi
 
     # Handle "all" profile - mount entire ~/.aws directory
@@ -504,11 +508,16 @@ EOF
         exit 0
     fi
 
+    # Check if we're in a directory with a Dockerfile
+    if [ ! -f "Dockerfile" ]; then
+        error "No Dockerfile found in current directory. Please run 'frank rebuild' from the frank-claude project directory."
+    fi
+
     info "Removing existing frank-claude image..."
     docker rmi "$IMAGE_NAME" 2>/dev/null || true
 
     info "Building new frank-claude image..."
-    docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" || error "Failed to build Docker image"
+    docker build -t "$IMAGE_NAME" . || error "Failed to build Docker image"
 
     info ""
     info "Image rebuilt successfully!"
