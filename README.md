@@ -1,4 +1,4 @@
-# franken-claude
+# frank-claude
 
 A wrapper to launch sandboxed Claude Code containers in OrbStack/Docker with AWS SSO credential injection.
 
@@ -21,27 +21,27 @@ A wrapper to launch sandboxed Claude Code containers in OrbStack/Docker with AWS
 ## Installation
 
 ```bash
-git clone https://github.com/mediafly/franken-claude.git
-cd franken-claude
+git clone https://github.com/mediafly/frank-claude.git
+cd frank-claude
 
 # Copy and configure MCP settings (optional, for local development)
 cp .claude/settings.local.json.example .claude/settings.local.json
 # Edit .claude/settings.local.json to add your context7 API key
 
-# Install franken CLI globally (optional, but recommended)
-sudo cp franken /usr/local/bin/franken
+# Install frank CLI globally (optional, but recommended)
+sudo cp frank /usr/local/bin/frank
 ```
 
-**Note:** If you don't install globally, use `./franken` instead of `franken` for all commands below.
+**Note:** If you don't install globally, use `./frank` instead of `frank` for all commands below.
 
 ## Usage
 
-The `franken` CLI provides commands to manage franken-claude containers:
+The `frank` CLI provides commands to manage frank-claude containers:
 
 ### Start a container
 
 ```bash
-franken start --profile <aws-profile> --repo <path-to-git-repo> [--read-only]
+frank start --profile <aws-profile> --repo <path-to-git-repo> [--read-only]
 ```
 
 **Options:**
@@ -52,52 +52,52 @@ franken start --profile <aws-profile> --repo <path-to-git-repo> [--read-only]
 **Examples:**
 ```bash
 # Start with specific profile
-franken start --profile dev --repo ~/projects/my-app
+frank start --profile dev --repo ~/projects/my-app
 
 # Start with all AWS profiles available (mounts ~/.aws)
-franken start --profile all --repo ~/projects/my-app
+frank start --profile all --repo ~/projects/my-app
 
 # Start in read-only mode
-franken start --profile dev --repo ~/projects/my-app --read-only
+frank start --profile dev --repo ~/projects/my-app --read-only
 ```
 
 This will:
 1. Check AWS SSO credentials (auto-triggers `aws sso login` if expired, unless using `--profile all`)
 2. Build the Docker image (first run only)
-3. Start a container named `franken-<profile>-<n>`
+3. Start a container named `frank-<profile>-<n>`
 4. Open a web terminal in your browser at `http://localhost:7681`
 
-Each new browser tab to the same URL creates a new git worktree (`franken-1`, `franken-2`, etc.).
+Each new browser tab to the same URL creates a new git worktree (`frank-1`, `frank-2`, etc.).
 
 ### List containers
 
 ```bash
-franken list
+frank list
 ```
 
-Shows all franken-claude containers with their status, port, and uptime.
+Shows all frank-claude containers with their status, port, and uptime.
 
 ### View logs
 
 ```bash
-franken logs <container-name>           # View logs
-franken logs <container-name> -f        # Follow logs
-franken logs <container-name> --tail 50 # Last 50 lines
+frank logs <container-name>           # View logs
+frank logs <container-name> -f        # Follow logs
+frank logs <container-name> --tail 50 # Last 50 lines
 ```
 
 ### Execute commands
 
 ```bash
-franken exec <container-name> "command"  # Run a command
-franken exec <container-name>            # Interactive bash shell
+frank exec <container-name> "command"  # Run a command
+frank exec <container-name>            # Interactive bash shell
 ```
 
 ### Stop containers
 
 ```bash
-franken stop <container-name>        # Stop specific container
-franken stop <profile>               # Stop all containers for profile
-franken stop --all                   # Stop all franken-claude containers
+frank stop <container-name>        # Stop specific container
+frank stop <profile>               # Stop all containers for profile
+frank stop --all                   # Stop all frank-claude containers
 ```
 
 Stopping automatically cleans up git worktrees and saves the container state to a timestamped image.
@@ -105,7 +105,7 @@ Stopping automatically cleans up git worktrees and saves the container state to 
 ### Rebuild image
 
 ```bash
-franken rebuild
+frank rebuild
 ```
 
 Rebuilds the Docker image from scratch (useful after updating Dockerfile or scripts).
@@ -113,13 +113,13 @@ Rebuilds the Docker image from scratch (useful after updating Dockerfile or scri
 ### Get help
 
 ```bash
-franken help                    # Show all commands
-franken <command> --help        # Show help for specific command
+frank help                    # Show all commands
+frank <command> --help        # Show help for specific command
 ```
 
 ## Environment Variables
 
-Set these on your host machine before running `franken start`:
+Set these on your host machine before running `frank start`:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -185,10 +185,10 @@ This directory contains:
 ls -la ~/.claude-containers/
 
 # Back up a container's data
-cp -r ~/.claude-containers/franken-dev-1 ~/backups/
+cp -r ~/.claude-containers/frank-dev-1 ~/backups/
 
 # Remove data for stopped containers
-rm -rf ~/.claude-containers/franken-old-container
+rm -rf ~/.claude-containers/frank-old-container
 ```
 
 ## Using MCP Launchpad
@@ -207,7 +207,7 @@ The container includes [mcp-launchpad](https://github.com/kenneth-liao/mcp-launc
 
 **Example usage:**
 ```bash
-# Inside a franken-claude container
+# Inside a frank-claude container
 mcpl search "aws"           # Find AWS-related tools
 mcpl list                   # List all available tools
 mcpl execute <tool-name>    # Execute a specific tool

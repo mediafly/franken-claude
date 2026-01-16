@@ -2,7 +2,7 @@
 set -e
 
 # fc: Franken-Claude CLI - Manage Claude Code containers with AWS SSO
-# Usage: franken <command> [options]
+# Usage: frank <command> [options]
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -11,7 +11,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE_NAME="franken-claude"
+IMAGE_NAME="frank-claude"
 BASE_PORT=7681
 
 VERSION="0.2.0"
@@ -36,9 +36,9 @@ blue() {
 
 usage() {
     cat << EOF
-franken v${VERSION} - Franken-Claude CLI
+frank v${VERSION} - Franken-Claude CLI
 
-Usage: franken <command> [options]
+Usage: frank <command> [options]
 
 Commands:
   start     Start a new container
@@ -50,16 +50,16 @@ Commands:
   version   Show version information
   help      Show this help message
 
-Run 'franken <command> --help' for more information on a command.
+Run 'frank <command> --help' for more information on a command.
 
 Examples:
-  franken start --profile dev --repo ~/projects/my-app
-  franken start --profile all --repo ~/projects/my-app
-  franken start --profile dev --repo ~/projects/my-app --read-only
-  franken list
-  franken logs franken-dev-1
-  franken stop dev
-  franken exec franken-dev-1 "aws sts get-caller-identity"
+  frank start --profile dev --repo ~/projects/my-app
+  frank start --profile all --repo ~/projects/my-app
+  frank start --profile dev --repo ~/projects/my-app --read-only
+  frank list
+  frank logs frank-dev-1
+  frank stop dev
+  frank exec frank-dev-1 "aws sts get-caller-identity"
 EOF
     exit 0
 }
@@ -86,9 +86,9 @@ cmd_start() {
                 ;;
             --help|-h)
                 cat << EOF
-Usage: franken start --profile <aws-profile> --repo <path-to-git-repo> [options]
+Usage: frank start --profile <aws-profile> --repo <path-to-git-repo> [options]
 
-Start a new franken-claude container with AWS SSO credentials.
+Start a new frank-claude container with AWS SSO credentials.
 
 Options:
   --profile, -p    AWS SSO profile name or "all" to mount entire ~/.aws (required)
@@ -97,9 +97,9 @@ Options:
   --help, -h       Show this help message
 
 Examples:
-  franken start --profile my-dev-account --repo ~/projects/my-app
-  franken start --profile all --repo ~/projects/my-app
-  franken start --profile dev --repo ~/projects/my-app --read-only
+  frank start --profile my-dev-account --repo ~/projects/my-app
+  frank start --profile all --repo ~/projects/my-app
+  frank start --profile dev --repo ~/projects/my-app --read-only
 EOF
                 exit 0
                 ;;
@@ -128,7 +128,7 @@ EOF
 
     # Build image if it doesn't exist
     if ! docker image inspect "$IMAGE_NAME" &> /dev/null; then
-        info "Building franken-claude image (this may take a few minutes)..."
+        info "Building frank-claude image (this may take a few minutes)..."
         docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" || error "Failed to build Docker image"
     fi
 
@@ -187,7 +187,7 @@ EOF
     fi
 
     # Find next available container number for this profile
-    CONTAINER_BASE="franken-${AWS_PROFILE}"
+    CONTAINER_BASE="frank-${AWS_PROFILE}"
     CONTAINER_NUM=1
 
     while docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_BASE}-${CONTAINER_NUM}$"; do
@@ -257,7 +257,7 @@ EOF
 
     info ""
     info "=========================================="
-    info "  franken-claude is ready!"
+    info "  frank-claude is ready!"
     info "=========================================="
     info ""
     info "Container: $CONTAINER_NAME"
@@ -267,8 +267,8 @@ EOF
     info "Open additional terminal tabs at the same URL."
     info "Each tab gets its own git worktree."
     info ""
-    info "To stop: franken stop $CONTAINER_NAME"
-    info "         franken stop $AWS_PROFILE  (stops all)"
+    info "To stop: frank stop $CONTAINER_NAME"
+    info "         frank stop $AWS_PROFILE  (stops all)"
     info ""
 
     # Open browser
@@ -283,16 +283,16 @@ EOF
 cmd_stop() {
     if [ $# -eq 0 ]; then
         cat << EOF
-Usage: frankenstop <profile-or-container-name>
+Usage: frankstop <profile-or-container-name>
 
-Stop and save franken-claude container(s).
+Stop and save frank-claude container(s).
 
 Examples:
-  frankenstop myprofile           # Stop all containers for 'myprofile'
-  frankenstop franken-myprofile-2 # Stop specific container
+  frankstop myprofile           # Stop all containers for 'myprofile'
+  frankstop frank-myprofile-2 # Stop specific container
 
 Options:
-  --all, -a    Stop all franken-claude containers
+  --all, -a    Stop all frank-claude containers
   --help, -h   Show this help message
 EOF
         exit 1
@@ -337,26 +337,26 @@ EOF
             cmd_stop
             ;;
         --all|-a)
-            # Stop all franken-claude containers
-            CONTAINERS=$(docker ps -a --format '{{.Names}}' | grep "^franken-" || true)
+            # Stop all frank-claude containers
+            CONTAINERS=$(docker ps -a --format '{{.Names}}' | grep "^frank-" || true)
             if [ -z "$CONTAINERS" ]; then
-                warn "No franken-claude containers found"
+                warn "No frank-claude containers found"
                 exit 0
             fi
 
-            echo "Stopping all franken-claude containers:"
+            echo "Stopping all frank-claude containers:"
             echo "$CONTAINERS" | while read container; do
                 cleanup_container "$container"
             done
 
             info ""
-            info "All franken-claude containers stopped and removed"
+            info "All frank-claude containers stopped and removed"
             ;;
         *)
             TARGET="$1"
 
-            # Check if it's a full container name (starts with franken-)
-            if [[ "$TARGET" == franken-* ]]; then
+            # Check if it's a full container name (starts with frank-)
+            if [[ "$TARGET" == frank-* ]]; then
                 # Specific container
                 if ! docker ps -a --format '{{.Names}}' | grep -q "^${TARGET}$"; then
                     error "Container not found: $TARGET"
@@ -364,7 +364,7 @@ EOF
                 cleanup_container "$TARGET"
             else
                 # Assume it's a profile name, stop all containers for that profile
-                PROFILE_CONTAINERS=$(docker ps -a --format '{{.Names}}' | grep "^franken-${TARGET}-" || true)
+                PROFILE_CONTAINERS=$(docker ps -a --format '{{.Names}}' | grep "^frank-${TARGET}-" || true)
 
                 if [ -z "$PROFILE_CONTAINERS" ]; then
                     error "No containers found for profile: $TARGET"
@@ -386,19 +386,19 @@ EOF
 cmd_list() {
     if [[ "$1" == "--help" || "$1" == "-h" ]]; then
         cat << EOF
-Usage: frankenlist
+Usage: franklist
 
-List all franken-claude containers (running and stopped).
+List all frank-claude containers (running and stopped).
 
 Shows container name, status, port, and uptime.
 EOF
         exit 0
     fi
 
-    CONTAINERS=$(docker ps -a --format '{{.Names}}' --filter "name=^franken-" | sort || true)
+    CONTAINERS=$(docker ps -a --format '{{.Names}}' --filter "name=^frank-" | sort || true)
 
     if [ -z "$CONTAINERS" ]; then
-        warn "No franken-claude containers found"
+        warn "No frank-claude containers found"
         exit 0
     fi
 
@@ -429,9 +429,9 @@ EOF
 cmd_logs() {
     if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
         cat << EOF
-Usage: frankenlogs <container-name> [options]
+Usage: franklogs <container-name> [options]
 
-View logs for a franken-claude container.
+View logs for a frank-claude container.
 
 Options:
   -f, --follow    Follow log output
@@ -439,9 +439,9 @@ Options:
   --help, -h      Show this help message
 
 Example:
-  frankenlogs franken-dev-1
-  frankenlogs franken-dev-1 -f
-  frankenlogs franken-dev-1 --tail 50
+  franklogs frank-dev-1
+  franklogs frank-dev-1 -f
+  franklogs frank-dev-1 --tail 50
 EOF
         exit 0
     fi
@@ -460,13 +460,13 @@ EOF
 cmd_exec() {
     if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
         cat << EOF
-Usage: frankenexec <container-name> <command>
+Usage: frankexec <container-name> <command>
 
-Execute a command in a running franken-claude container.
+Execute a command in a running frank-claude container.
 
 Example:
-  frankenexec franken-dev-1 "aws sts get-caller-identity"
-  frankenexec franken-dev-1 "git status"
+  frankexec frank-dev-1 "aws sts get-caller-identity"
+  frankexec frank-dev-1 "git status"
 EOF
         exit 0
     fi
@@ -491,12 +491,12 @@ EOF
 cmd_rebuild() {
     if [[ "$1" == "--help" || "$1" == "-h" ]]; then
         cat << EOF
-Usage: frankenrebuild
+Usage: frankrebuild
 
-Rebuild the franken-claude Docker image from scratch.
+Rebuild the frank-claude Docker image from scratch.
 
 This will:
-  1. Remove the existing franken-claude image
+  1. Remove the existing frank-claude image
   2. Rebuild it with the latest Dockerfile and scripts
 
 Use this when you've updated the Dockerfile or container scripts.
@@ -504,10 +504,10 @@ EOF
         exit 0
     fi
 
-    info "Removing existing franken-claude image..."
+    info "Removing existing frank-claude image..."
     docker rmi "$IMAGE_NAME" 2>/dev/null || true
 
-    info "Building new franken-claude image..."
+    info "Building new frank-claude image..."
     docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" || error "Failed to build Docker image"
 
     info ""
@@ -516,7 +516,7 @@ EOF
 
 # Command: version
 cmd_version() {
-    echo "franken (franken-claude) v${VERSION}"
+    echo "frank (frank-claude) v${VERSION}"
 }
 
 # Main command router
@@ -549,6 +549,6 @@ case "$COMMAND" in
         usage
         ;;
     *)
-        error "Unknown command: $COMMAND\nRun 'franken help' for usage."
+        error "Unknown command: $COMMAND\nRun 'frank help' for usage."
         ;;
 esac

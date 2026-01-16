@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Entrypoint for franken-claude container
+# Entrypoint for frank-claude container
 # Starts ttyd web terminal that spawns shells with worktree initialization
 
 WORKTREE_COUNTER_FILE="/tmp/worktree-counter"
@@ -15,7 +15,7 @@ if [ ! -f "/root/.claude/settings.local.json" ]; then
 fi
 
 echo "=========================================="
-echo "  franken-claude container starting"
+echo "  frank-claude container starting"
 echo "=========================================="
 echo ""
 echo "AWS Profile: ${AWS_PROFILE:-not set}"

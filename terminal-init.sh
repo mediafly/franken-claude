@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Terminal initialization script for franken-claude
+# Terminal initialization script for frank-claude
 # Creates a new git worktree for each terminal session
 
 WORKTREE_COUNTER_FILE="/tmp/worktree-counter"
@@ -28,7 +28,7 @@ fi
 
 # Get next worktree number
 WORKTREE_NUM=$(get_next_worktree_number)
-WORKTREE_NAME="franken-${WORKTREE_NUM}"
+WORKTREE_NAME="frank-${WORKTREE_NUM}"
 WORKTREE_PATH="${WORKTREE_BASE}/${WORKTREE_NAME}"
 
 echo "=========================================="

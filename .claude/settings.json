@@ -18,7 +18,11 @@
       "Bash(claude setup-token:*)",
       "Read(//Users/tegryan/.claude/**)",
       "Bash(ls:*)",
-      "Bash(./fc start:*)"
+      "Bash(./fc start:*)",
+      "Bash(franken help:*)",
+      "Read(//usr/local/bin/**)",
+      "Bash(git restore:*)",
+      "Bash(sudo cp:*)"
     ]
   }
 }
