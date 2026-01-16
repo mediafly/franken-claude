@@ -50,9 +50,8 @@ RUN npm install -g @upstash/context7-mcp @modelcontextprotocol/server-sequential
 # Create workspace directory
 RUN mkdir -p /workspace /worktrees
 
-# Configure Claude Code MCP servers
-RUN mkdir -p /root/.claude
-COPY claude-settings.json /root/.claude/settings.local.json
+# Copy default Claude settings (will be installed by entrypoint if needed)
+COPY claude-settings.json /opt/claude-settings-default.json
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh

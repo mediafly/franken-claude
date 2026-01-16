@@ -7,6 +7,13 @@ set -e
 WORKTREE_COUNTER_FILE="/tmp/worktree-counter"
 echo "0" > "$WORKTREE_COUNTER_FILE"
 
+# Initialize Claude settings if this is first run
+if [ ! -f "/root/.claude/settings.local.json" ]; then
+    mkdir -p /root/.claude
+    cp /opt/claude-settings-default.json /root/.claude/settings.local.json
+    echo "Initialized default Claude settings"
+fi
+
 echo "=========================================="
 echo "  franken-claude container starting"
 echo "=========================================="

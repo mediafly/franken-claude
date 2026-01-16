@@ -206,6 +206,10 @@ EOF
     info "Mounting repository: $REPO_PATH $([ "$READ_ONLY" == "true" ] && echo "(read-only)" || echo "")"
     info "Web terminal will be available at: http://localhost:$PORT"
 
+    # Create persistent Claude directory for this container
+    local CLAUDE_DATA_DIR="${HOME}/.claude-containers/${CONTAINER_NAME}"
+    mkdir -p "$CLAUDE_DATA_DIR"
+
     # Build docker run command
     local DOCKER_CMD="docker run -d --name \"$CONTAINER_NAME\" -p \"${PORT}:7681\""
 
@@ -215,6 +219,9 @@ EOF
     else
         DOCKER_CMD="$DOCKER_CMD -v \"${REPO_PATH}:/workspace\""
     fi
+
+    # Mount persistent Claude data directory
+    DOCKER_CMD="$DOCKER_CMD -v \"${CLAUDE_DATA_DIR}:/root/.claude\""
 
     # Add AWS directory mount or credentials as env vars
     if [ "$MOUNT_AWS_DIR" == "true" ]; then
@@ -255,6 +262,7 @@ EOF
     info ""
     info "Container: $CONTAINER_NAME"
     info "Web terminal: http://localhost:$PORT"
+    info "Claude data: ${CLAUDE_DATA_DIR}"
     info ""
     info "Open additional terminal tabs at the same URL."
     info "Each tab gets its own git worktree."
